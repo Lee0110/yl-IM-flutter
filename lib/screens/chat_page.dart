@@ -9,11 +9,13 @@ import 'dart:convert';
 class ChatPage extends StatefulWidget {
   final String userId;
   final String receiverId;
+  final String wsUrl;
 
   const ChatPage({
     super.key, 
     required this.userId, 
-    required this.receiverId
+    required this.receiverId,
+    required this.wsUrl
   });
 
   @override
@@ -44,7 +46,7 @@ class _ChatPageState extends State<ChatPage> {
       },
     );
     
-    _webSocketService.connect(widget.userId);
+    _webSocketService.connect(widget.userId, widget.wsUrl);
   }
 
   void _handleIncomingMessage(dynamic message) {

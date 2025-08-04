@@ -11,20 +11,23 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _userIdController = TextEditingController();
   final TextEditingController _receiverIdController = TextEditingController();
+  final TextEditingController _wsUrlController = TextEditingController(text: "localhost:10002/ws");
 
   @override
   void dispose() {
     _userIdController.dispose();
     _receiverIdController.dispose();
+    _wsUrlController.dispose();
     super.dispose();
   }
 
   void _navigateToChatPage() {
     final userId = _userIdController.text.trim();
     final receiverId = _receiverIdController.text.trim();
+    final wsUrl = _wsUrlController.text.trim();
     
-    if (userId.isNotEmpty && receiverId.isNotEmpty) {
-      // 检查是否都是数字
+    if (userId.isNotEmpty && receiverId.isNotEmpty && wsUrl.isNotEmpty) {
+      // 检查ID是否都是数字
       if (_isNumeric(userId) && _isNumeric(receiverId)) {
         Navigator.push(
           context,
@@ -32,6 +35,7 @@ class _LoginPageState extends State<LoginPage> {
             builder: (context) => ChatPage(
               userId: userId,
               receiverId: receiverId,
+              wsUrl: wsUrl,
             ),
           ),
         );
@@ -42,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入用户ID和接收者ID')),
+        const SnackBar(content: Text('请输入所有必填字段')),
       );
     }
   }
@@ -83,6 +87,15 @@ class _LoginPageState extends State<LoginPage> {
                   hintText: '请输入接收者的ID (仅数字)',
                 ),
                 keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _wsUrlController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'WebSocket地址',
+                  hintText: '例如: 192.168.1.1:8080/chat',
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(

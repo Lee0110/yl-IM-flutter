@@ -10,6 +10,7 @@ class WebSocketService {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
   bool _isConnected = false;
+  String? _currentWsUrl; // 存储当前使用的WebSocket URL
   
   // 回调函数
   final Function(dynamic) onMessageReceived;
@@ -37,13 +38,22 @@ class WebSocketService {
     return delay < maxDelay ? delay : maxDelay;
   }
   
-  void connect(String userId) {
+  void connect(String userId, [String? customWsUrl]) {
     if (_isConnecting) return;
     
     _isConnecting = true;
     try {
-      // 从配置中获取WebSocket URL并添加查询参数
-      final wsUrl = '${AppConfig.webSocketUrl}?userId=$userId';
+      // 使用自定义URL或从配置中获取WebSocket URL并添加查询参数
+      String wsUrlBase;
+      if (customWsUrl != null && customWsUrl.isNotEmpty) {
+        wsUrlBase = 'ws://$customWsUrl';
+        _currentWsUrl = customWsUrl; // 保存当前URL用于重连
+      } else {
+        wsUrlBase = AppConfig.webSocketUrl;
+        _currentWsUrl = null; // 使用默认配置
+      }
+      
+      final wsUrl = '$wsUrlBase?userId=$userId';
       final uri = Uri.parse(wsUrl);
       
       debugPrint('正在连接到WebSocket服务器: $wsUrl');
@@ -101,7 +111,7 @@ class WebSocketService {
     
     Future.delayed(Duration(milliseconds: delay), () {
       debugPrint('正在进行第 $_reconnectAttempts 次重连尝试...');
-      connect(userId);
+      connect(userId, _currentWsUrl);
     });
   }
 
