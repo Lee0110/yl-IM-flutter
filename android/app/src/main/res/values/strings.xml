@@ -1,0 +1,4 @@
+<!-- filepath: android/app/src/main/res/values/strings.xml -->
+<resources>
+    <string name="app_name">聊天app测试</string>
+</resources>
