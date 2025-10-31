@@ -121,6 +121,7 @@ class WebSocketService {
         'senderId': message.senderId,
         'receiverId': message.receiverId,
         'content': message.content,
+        'type': message.type,
       };
       
       try {

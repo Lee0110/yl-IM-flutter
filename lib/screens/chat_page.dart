@@ -63,6 +63,10 @@ class _ChatPageState extends State<ChatPage> {
         final int msgReceiverId = data['receiverId'] is String 
             ? int.parse(data['receiverId']) 
             : data['receiverId'];
+        // 获取消息类型，如果不存在则默认为1（普通消息）
+        final int msgType = data['type'] is String 
+            ? int.parse(data['type']) 
+            : (data['type'] ?? 1);
         
         // 将当前用户ID转换为整数，用于比较
         final int currentUserId = int.parse(widget.userId);
@@ -74,6 +78,7 @@ class _ChatPageState extends State<ChatPage> {
               senderId: msgSenderId,
               receiverId: msgReceiverId,
               isMine: msgSenderId == currentUserId,
+              type: msgType,
             ),
           );
         });
