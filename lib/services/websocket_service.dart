@@ -121,6 +121,8 @@ class WebSocketService {
         'senderId': message.senderId,
         'receiverId': message.receiverId,
         'content': message.content,
+        // 新增字段：type（临时固定为 NORMAL，由模型默认保证）
+        'type': message.type,
       };
       
       try {

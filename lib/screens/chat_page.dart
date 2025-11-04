@@ -67,6 +67,9 @@ class _ChatPageState extends State<ChatPage> {
         // 将当前用户ID转换为整数，用于比较
         final int currentUserId = int.parse(widget.userId);
         
+        // 兼容后端新增的消息类型字段，默认 NORMAL
+        final String msgType = (data['type'] ?? 'NORMAL').toString();
+
         setState(() {
           _messages.add(
             Message(
@@ -74,6 +77,7 @@ class _ChatPageState extends State<ChatPage> {
               senderId: msgSenderId,
               receiverId: msgReceiverId,
               isMine: msgSenderId == currentUserId,
+              type: msgType,
             ),
           );
         });
@@ -95,6 +99,8 @@ class _ChatPageState extends State<ChatPage> {
         senderId: senderId,
         receiverId: receiverId,
         isMine: true,
+        // 明确写死 NORMAL（与后端对齐）
+        type: 'NORMAL',
       );
       
       try {
