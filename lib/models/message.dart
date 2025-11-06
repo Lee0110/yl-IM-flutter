@@ -3,7 +3,7 @@ class Message {
   final bool isMine;
   final int senderId;
   final int receiverId;
-  // 新增：消息类型，后端新增字段，临时写死为 NORMAL
+  // 新增：消息类型，后端新增字段，临时写死为 TEXT
   final String type;
 
   Message({
@@ -11,6 +11,6 @@ class Message {
     required this.isMine,
     required this.senderId,
     required this.receiverId,
-    this.type = 'NORMAL',
+    this.type = 'TEXT',
   });
 }

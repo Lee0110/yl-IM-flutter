@@ -11,6 +11,8 @@ class WebSocketService {
   static const int _maxReconnectAttempts = 10;
   bool _isConnected = false;
   String? _currentWsUrl; // 存储当前使用的WebSocket URL
+  // 后端主动关闭时，禁用自动重连
+  bool _reconnectDisabled = false;
   
   // 回调函数
   final Function(dynamic) onMessageReceived;
@@ -26,6 +28,16 @@ class WebSocketService {
   bool get isConnected => _isConnected;
   int get reconnectAttempts => _reconnectAttempts;
   int get maxReconnectAttempts => _maxReconnectAttempts;
+  bool get reconnectDisabled => _reconnectDisabled;
+
+  // 外部可调用：禁用/启用自动重连（用于收到系统关闭消息时）
+  void disableReconnect() {
+    _reconnectDisabled = true;
+  }
+
+  void enableReconnect() {
+    _reconnectDisabled = false;
+  }
 
   // 使用指数退避算法计算等待时间（毫秒）
   int _getNextReconnectDelay() {
@@ -40,6 +52,10 @@ class WebSocketService {
   
   void connect(String userId, [String? customWsUrl]) {
     if (_isConnecting) return;
+    if (_reconnectDisabled) {
+      debugPrint('已禁用连接/重连：后端主动关闭（空闲超时）');
+      return;
+    }
     
     _isConnecting = true;
     try {
@@ -68,6 +84,26 @@ class WebSocketService {
           _isConnected = true;
           _reconnectAttempts = 0;
           onConnectionStatusChanged(_isConnected);
+          // 尝试解析系统关闭消息，若命中则禁用后续重连
+          try {
+            final data = jsonDecode(message);
+            if (data is Map<String, dynamic>) {
+              final String msgType = (data['type'] ?? '').toString().toUpperCase();
+              final dynamic rawSenderId = data['senderId'];
+              final int msgSenderId = rawSenderId is String ? int.tryParse(rawSenderId) ?? 0 : (rawSenderId ?? 0);
+              final String content = (data['content'] ?? '').toString();
+              final bool looksLikeIdleClose =
+                  msgType == 'SYSTEM' &&
+                  msgSenderId == -1 &&
+                  (content.contains('自动关闭') || content.contains('长时间无响应'));
+              if (looksLikeIdleClose) {
+                disableReconnect();
+                debugPrint('检测到服务器空闲关闭系统消息，已禁用自动重连');
+              }
+            }
+          } catch (_) {
+            // 忽略解析错误
+          }
           onMessageReceived(message);
         }, 
         onError: (error) {
@@ -99,6 +135,10 @@ class WebSocketService {
   }
   
   void _scheduleReconnect(String userId) {
+    if (_reconnectDisabled) {
+      debugPrint('后端主动关闭，已禁用自动重连');
+      return;
+    }
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint('达到最大重连次数 ($_maxReconnectAttempts)，不再重连');
       return;
@@ -121,7 +161,7 @@ class WebSocketService {
         'senderId': message.senderId,
         'receiverId': message.receiverId,
         'content': message.content,
-        // 新增字段：type（临时固定为 NORMAL，由模型默认保证）
+        // 新增字段：type（临时固定为 TEXT，由模型默认保证）
         'type': message.type,
       };
       

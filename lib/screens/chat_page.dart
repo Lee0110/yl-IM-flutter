@@ -52,28 +52,38 @@ class _ChatPageState extends State<ChatPage> {
   void _handleIncomingMessage(dynamic message) {
     try {
       final data = jsonDecode(message);
-      if (data is Map<String, dynamic> && 
-          data.containsKey('content') && 
-          data.containsKey('senderId') && 
-          data.containsKey('receiverId')) {
-        // 获取消息中的发送者ID和接收者ID
-        final int msgSenderId = data['senderId'] is String 
-            ? int.parse(data['senderId']) 
-            : data['senderId'];
-        final int msgReceiverId = data['receiverId'] is String 
-            ? int.parse(data['receiverId']) 
-            : data['receiverId'];
-        
-        // 将当前用户ID转换为整数，用于比较
+      if (data is Map<String, dynamic> && data.containsKey('content') && data.containsKey('senderId')) {
+        // 发送者/接收者
         final int currentUserId = int.parse(widget.userId);
-        
-        // 兼容后端新增的消息类型字段，默认 NORMAL
-        final String msgType = (data['type'] ?? 'NORMAL').toString();
+        final int msgSenderId = data['senderId'] is String
+            ? int.tryParse(data['senderId']) ?? -1
+            : (data['senderId'] ?? -1);
+        // receiverId 可能缺失（系统消息），缺失则回退为当前用户ID
+        final int msgReceiverId = data.containsKey('receiverId')
+            ? (data['receiverId'] is String
+                ? int.tryParse(data['receiverId']) ?? currentUserId
+                : (data['receiverId'] ?? currentUserId))
+            : currentUserId;
+
+        // 类型与内容
+        final String msgType = (data['type'] ?? 'TEXT').toString();
+        final String content = (data['content'] ?? '').toString();
+
+        // 判定是否为后端主动断开前的系统消息（放宽匹配）
+        final bool isSystemClose =
+            msgType.toUpperCase() == 'SYSTEM' &&
+            msgSenderId == -1 &&
+            (content.contains('自动关闭') || content.contains('长时间无响应'));
+
+        if (isSystemClose) {
+          _webSocketService.disableReconnect();
+          _showSnackBar('连接因长时间无响应被服务器关闭，将不再自动重连');
+        }
 
         setState(() {
           _messages.add(
             Message(
-              content: data['content'],
+              content: content,
               senderId: msgSenderId,
               receiverId: msgReceiverId,
               isMine: msgSenderId == currentUserId,
@@ -99,8 +109,8 @@ class _ChatPageState extends State<ChatPage> {
         senderId: senderId,
         receiverId: receiverId,
         isMine: true,
-        // 明确写死 NORMAL（与后端对齐）
-        type: 'NORMAL',
+  // 明确写死 TEXT（与后端对齐）
+  type: 'TEXT',
       );
       
       try {
@@ -113,8 +123,12 @@ class _ChatPageState extends State<ChatPage> {
         if (_webSocketService.isConnected) {
           _showSnackBar('发送失败，请重试');
         } else {
-          _showSnackBar('未连接到服务器，正在尝试重连...');
-          _webSocketService.connect(widget.userId);
+          if (_webSocketService.reconnectDisabled) {
+            _showSnackBar('连接已被服务器关闭（空闲超时），请退出重进会话');
+          } else {
+            _showSnackBar('未连接到服务器，正在尝试重连...');
+            _webSocketService.connect(widget.userId);
+          }
         }
       }
     }
@@ -169,8 +183,27 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
+          // 服务器主动关闭后的固定提示条（不再自动重连）
+          if (!isConnected && _webSocketService.reconnectDisabled)
+            Container(
+              width: double.infinity,
+              color: Colors.redAccent,
+              padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
+              child: Row(
+                children: const [
+                  Icon(Icons.block, color: Colors.white, size: 16),
+                  SizedBox(width: 8.0),
+                  Expanded(
+                    child: Text(
+                      '连接因长时间无响应被服务器关闭，已停止自动重连。请退出并重新进入会话。',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // 显示重连状态的条
-          if (!isConnected)
+          if (!isConnected && !_webSocketService.reconnectDisabled)
             Container(
               color: Colors.orangeAccent,
               padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 16.0),
